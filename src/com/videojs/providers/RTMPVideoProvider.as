@@ -16,6 +16,14 @@ package com.videojs.providers{
     import flash.utils.ByteArray;
     import flash.utils.Timer;
     import flash.utils.getTimer;
+    import flash.events.Event;
+    import flash.display.Loader;
+    import flash.events.Event;
+    import flash.net.URLRequest;
+    import flash.system.ApplicationDomain;
+    import flash.system.LoaderContext;
+    import flash.system.Security;
+
 
     public class RTMPVideoProvider extends EventDispatcher implements IProvider{
 
@@ -437,14 +445,37 @@ package com.videojs.providers{
                 _ns.removeEventListener(NetStatusEvent.NET_STATUS, onNetStreamStatus);
                 _ns = null;
             }
-            _ns = new NetStream(_nc);
-            _ns.addEventListener(NetStatusEvent.NET_STATUS, onNetStreamStatus);
-            _ns.client = this;
-            _ns.bufferTime = 1;
-            _ns.play(_src.streamURL);
-            _videoReference.attachNetStream(_ns);
-            _model.broadcastEventExternally(ExternalEventName.ON_LOAD_START);
-            _model.broadcastEvent(new VideoPlaybackEvent(VideoPlaybackEvent.ON_STREAM_READY, {ns:_ns}));
+            //_ns = new NetStream(_nc);
+            //_ns.addEventListener(NetStatusEvent.NET_STATUS, onNetStreamStatus);
+            //_ns.client = this;
+            //_ns.bufferTime = 1;
+            //_ns.play(_src.streamURL);
+            //_videoReference.attachNetStream(_ns);
+            //_model.broadcastEventExternally(ExternalEventName.ON_LOAD_START);
+            //_model.broadcastEvent(new VideoPlaybackEvent(VideoPlaybackEvent.ON_STREAM_READY, {ns:_ns}));
+
+            var loadSuccess:Function = function(e:Event):void {
+                var vodP2PInstance:Object = e.currentTarget.content;
+                // 第2步：加载sdk成功后，播放点播资源
+                //var p2pNetStream:* = vodP2PInstance.stream;
+                //p2pNetStream.addEventListener(NetStatusEvent.NET_STATUS, onPlayStatus);
+                //video.attachNetStream(p2pNetStream);
+                //var urlArray:Array = new Array();
+                //urlArray.push("http://vod.vbyte.cn/lalala.mp4");
+                //p2pNetStream.play(urlArray);
+                //_ns = new NetStream(_nc);
+                _ns = vodP2PInstance.stream;
+                _ns.addEventListener(NetStatusEvent.NET_STATUS, onNetStreamStatus);
+                _ns.client = this;
+                _ns.bufferTime = 1;
+                _ns.play(_src.streamURL);
+                _videoReference.attachNetStream(_ns);
+                _model.broadcastEventExternally(ExternalEventName.ON_LOAD_START);
+                _model.broadcastEvent(new VideoPlaybackEvent(VideoPlaybackEvent.ON_STREAM_READY, {ns:_ns}));
+            }
+            var loader:Loader = new Loader();
+            loader.contentLoaderInfo.addEventListener(Event.COMPLETE, loadSuccess);
+            loader.load(new URLRequest("http://split.vbyte.cn/sdk/vodsdk_gaoxiaobang.swf"));
         }
 
         private function calculateThroughput():void{

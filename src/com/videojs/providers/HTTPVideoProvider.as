@@ -14,6 +14,13 @@ package com.videojs.providers{
     import flash.utils.ByteArray;
     import flash.utils.Timer;
     import flash.utils.getTimer;
+    import flash.display.Loader;
+    import flash.events.Event;
+
+    import flash.net.URLRequest;
+    import flash.system.ApplicationDomain;
+    import flash.system.LoaderContext;
+    import flash.system.Security;
 
     public class HTTPVideoProvider extends EventDispatcher implements IProvider{
 
@@ -45,6 +52,8 @@ package com.videojs.providers{
         private var _loadErrored:Boolean = false;
         private var _pausePending:Boolean = false;
         private var _onmetadadataFired:Boolean = false;
+        private var loader:Loader ;
+        private var p2pNetStream:NetStream ;
 
         /**
          * The number of seconds between the logical start of the stream and the current zero
@@ -295,6 +304,8 @@ package com.videojs.providers{
         }
 
         public function init(pSrc:Object, pAutoplay:Boolean):void{
+            Security.allowDomain("*");
+            Security.allowInsecureDomain("*");
             _onmetadadataFired = false;
             _src = pSrc;
             _loadErrored = false;
@@ -479,10 +490,20 @@ package com.videojs.providers{
                 _nc = null;
             }
 
-            _nc = new NetConnection();
-            _nc.client = this;
-            _nc.addEventListener(NetStatusEvent.NET_STATUS, onNetConnectionStatus);
-            _nc.connect(null);
+
+
+            loader = new Loader();
+            loader.load(new URLRequest("http://split.vbyte.cn/sdk/vodsdk_gaoxiaobang.swf"));
+            loader.contentLoaderInfo.addEventListener(Event.COMPLETE, function(e:Event):void{
+                var vodP2PInstance:Object = e.currentTarget.content;
+                // 第2步：加载sdk成功后，播放点播资源
+                p2pNetStream = vodP2PInstance.stream;
+                _nc = new NetConnection();
+                _nc.client = this;
+                _nc.addEventListener(NetStatusEvent.NET_STATUS, onNetConnectionStatus);
+                _nc.connect(null);
+            });
+
         }
 
         private function initNetStream():void{
@@ -491,7 +512,7 @@ package com.videojs.providers{
                 _ns.removeEventListener(NetStatusEvent.NET_STATUS, onNetStreamStatus);
                 _ns = null;
             }
-            _ns = new NetStream(_nc);
+            _ns = p2pNetStream;
             _ns.inBufferSeek = true;
             _ns.addEventListener(NetStatusEvent.NET_STATUS, onNetStreamStatus);
             _ns.client = this;
@@ -504,6 +525,33 @@ package com.videojs.providers{
               _pausePending = true;
             }
             _model.broadcastEvent(new VideoPlaybackEvent(VideoPlaybackEvent.ON_STREAM_READY, {ns:_ns}));
+            //var loadSuccess:Function = function(e:Event):void {
+            //    var vodP2PInstance:Object = e.currentTarget.content;
+            //    // 第2步：加载sdk成功后，播放点播资源
+            //    var p2pNetStream:NetStream = vodP2PInstance.stream;
+            //    //p2pNetStream.addEventListener(NetStatusEvent.NET_STATUS, onPlayStatus);
+            //    //video.attachNetStream(p2pNetStream);
+            //    //var urlArray:Array = new Array();
+            //    //urlArray.push(_src.path);
+            //    //p2pNetStream.play(urlArray);
+            //    loader.contentLoaderInfo.removeEventListener(Event.COMPLETE,arguments.callee);
+            //    //_ns = new NetStream(_nc);
+            //    _ns = p2pNetStream;
+            //    _ns.inBufferSeek = true;
+            //    _ns.addEventListener(NetStatusEvent.NET_STATUS, onNetStreamStatus);
+            //    _ns.client = this;
+            //    _ns.bufferTime = .5;
+            //    _ns.play(_src.path);
+            //    _ns.pause();
+            //    _videoReference.attachNetStream(_ns);
+            //    if (_src.path === null) {
+            //        _pausePending = true;
+            //    }
+            //    _model.broadcastEvent(new VideoPlaybackEvent(VideoPlaybackEvent.ON_STREAM_READY, {ns:_ns}));
+            //}
+            //loader = new Loader();
+            //loader.contentLoaderInfo.addEventListener(Event.COMPLETE, loadSuccess);
+            //loader.load(new URLRequest("http://split.vbyte.cn/sdk/vodsdk_gaoxiaobang.swf"));
         }
 
         private function calculateThroughput():void{
